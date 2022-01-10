@@ -1,37 +1,202 @@
-## Welcome to GitHub Pages
+# Smug - tmux session manager
 
-You can use the [editor on GitHub](https://github.com/ivaaaan/smug/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+[![Actions Status](https://github.com/ivaaaan/smug/workflows/Go/badge.svg)](https://github.com/ivaaaan/smug/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ivaaaan/smug)](https://goreportcard.com/report/github.com/ivaaaan/smug)
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+Inspired by [tmuxinator](https://github.com/tmuxinator/tmuxinator) and [tmuxp](https://github.com/tmux-python/tmuxp).
 
-### Markdown
+Smug automates your [tmux](https://github.com/tmux/tmux) workflow. You can create a single configuration file, and Smug will create all the required windows and panes from it.
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+![gif](https://raw.githubusercontent.com/ivaaaan/gifs/master/smug.gif)
 
-```markdown
-Syntax highlighted code block
+The configuration used in this GIF can be found [here](#example-2).
 
-# Header 1
-## Header 2
-### Header 3
+## Installation
 
-- Bulleted
-- List
+### Download from the releases page
 
-1. Numbered
-2. List
+Download the latest version of Smug from the [releases page](https://github.com/ivaaaan/smug/releases) and then run:
 
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
+```bash
+mkdir smug && tar -xzf smug_0.1.0_Darwin_x86_64.tar.gz -C ./smug && sudo mv smug/smug /usr/local/bin && rm -rf smug
 ```
 
-For more details see [Basic writing and formatting syntax](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax).
+Don't forget to replace `smug_0.1.0_Darwin_x86_64.tar.gz` with the archive that you've downloaded.
 
-### Jekyll Themes
+### Git
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/ivaaaan/smug/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
+#### Prerequisite Tools
 
-### Support or Contact
+* [Git](https://git-scm.com/)
+* [Go (we test it with the last 2 major versions)](https://golang.org/dl/)
 
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
+#### Fetch from GitHub
+
+The easiest way is to clone Smug from GitHub and install it using `go-cli`:
+
+```bash
+cd /tmp
+git clone https://github.com/ivaaaan/smug.git
+cd smug
+go install
+```
+
+### macOS
+
+On macOS, you can install Smug using [MacPorts](https://www.macports.org) or [Homebrew](https://brew.sh).
+
+### Homebrew
+
+```bash
+brew install smug
+```
+
+#### MacPorts
+
+```bash
+sudo port selfupdate
+sudo port install smug
+```
+
+## Usage
+
+```
+smug <command> [<project>] [-f, --file <file>] [-w, --windows <window>]... [-a, --attach] [-d, --debug]
+```
+
+### Options:
+
+```
+-f, --file A custom path to a config file
+-w, --windows List of windows to start. If session exists, those windows will be attached to current session.
+-a, --attach Force switch client for a session
+-d, --debug Print all commands to ~/.config/smug/smug.log
+--detach Detach session. The same as `-d` flag in the tmux
+```
+
+### Custom settings
+
+You can pass custom settings into your configuration file. Use `${variable_name}` syntax in your config and then pass key-value args:
+
+```console
+xyz@localhost:~$ smug start project variable_name=value
+```
+
+### Examples
+
+To create a new project, or edit an existing one in the `$EDITOR`:
+
+```console
+xyz@localhost:~$ smug new project
+
+xyz@localhost:~$ smug edit project
+```
+
+To start/stop a project and all windows, run:
+
+```console
+xyz@localhost:~$ smug start project
+
+xyz@localhost:~$ smug stop project
+```
+
+When you already have a running session, and you want only to create some windows from the configuration file, you can do something like this:
+
+```console
+xyz@localhost:~$ smug start project:window1
+
+xyz@localhost:~$ smug start project:window1,window2
+
+xyz@localhost:~$ smug start project -w window1
+
+xyz@localhost:~$ smug start project -w window1 -w window2
+
+xyz@localhost:~$ smug stop project:window1
+
+xyz@localhost:~$ smug stop project -w window1 -w window2
+```
+
+Also, you are not obliged to put your files in the `~/.config/smug` directory. You can use a custom path in the `-f` flag:
+
+```console
+xyz@localhost:~$ smug start -f ./project.yml
+
+xyz@localhost:~$ smug stop -f ./project.yml
+
+xyz@localhost:~$ smug start -f ./project.yml -w window1 -w window2
+```
+
+## Configuration
+
+Configuration files stored in the `~/.config/smug` directory in the `YAML` format, e.g `~/.config/smug/your_project.yml`.
+
+### Examples
+
+#### Example 1
+
+```yaml
+session: blog
+
+root: ~/Developer/blog
+
+before_start:
+  - docker-compose -f my-microservices/docker-compose.yml up -d # my-microservices/docker-compose.yml is a relative to `root`
+
+env:
+  FOO: BAR
+
+stop:
+  - docker stop $(docker ps -q)
+
+windows:
+  - name: code
+    root: blog # a relative path to root
+    manual: true # you can start this window only manually, using the -w arg
+    layout: main-vertical
+    commands:
+      - docker-compose start
+    panes:
+      - type: horizontal
+        root: .
+        commands:
+          - docker-compose exec php /bin/sh
+          - clear
+
+  - name: infrastructure
+    root: ~/Developer/blog/my-microservices
+    layout: tiled
+    panes:
+      - type: horizontal
+        root: .
+        commands:
+          - docker-compose up -d
+          - docker-compose exec php /bin/sh
+          - clear
+```
+
+#### Example 2
+
+```yaml
+session: blog
+
+root: ~/Code/blog
+
+before_start:
+  - docker-compose up -d
+
+stop:
+  - docker-compose stop
+
+windows:
+  - name: code
+    layout: main-horizontal
+    commands:
+      - $EDITOR app/dependencies.php
+    panes:
+      - type: horizontal
+        commands:
+          - make run-tests
+  - name: ssh
+    commands:
+      - ssh -i ~/keys/blog.pem ubuntu@127.0.0.1
+```
